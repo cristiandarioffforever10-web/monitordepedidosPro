@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Consola de Despacho Logístico PRO - Cloud Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuración de Firebase proporcionada por el entorno
+  const firebaseConfig = {
+    apiKey: "AIzaSyDfZvwhzUE3Qy1Luoyb5PPaNwM5D2MniiA",
+    authDomain: "monitordepedidos-2b20b.firebaseapp.com",
+    projectId: "monitordepedidos-2b20b",
+    storageBucket: "monitordepedidos-2b20b.firebasestorage.app",
+    messagingSenderId: "544194700696",
+    appId: "1:544194700696:web:29f2e1c289ed1806a577ed"
+  };        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'logistica-pro-360';
+
+        // Variables de estado global
+        let orders = {};
+        let staff = [];
+        let currentUser = null;
+
+        // --- LÓGICA DE FIREBASE ---
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Error de autenticación:", error);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+
+                // Leer rol desde querystring o localStorage
+                const params = new URLSearchParams(window.location.search);
+                const roleFromQuery = params.get('role');
+                const storedRole = localStorage.getItem('rutatotal_role');
+                const role = roleFromQuery || storedRole || null;
+
+                // Mostrar rol y UID en la cabecera
+                if (role) {
+                    document.getElementById('user-display').textContent = `${role.toUpperCase()} • ID: ${user.uid}`;
+                } else {
+                    document.getElementById('user-display').textContent = `ID SESIÓN: ${user.uid}`;
+                }
+
+                // Guardar/actualizar perfil con el rol en Firestore (opcional)
+                if (role) {
+                    setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), {
+                        role: role,
+                        lastLogin: Date.now()
+                    }).catch(e => console.error('Error guardando rol en Firestore:', e));
+                }
+
+                setupRealtimeListeners();
+                // Ocultar pantalla de carga y mostrar UI principal
+                const loading = document.getElementById('loading-screen');
+                if (loading) loading.style.display = 'none';
+                const kanban = document.getElementById('kanban-container');
+                if (kanban) kanban.classList.remove('hidden');
+                const ops = document.getElementById('ops-panel');
+                if (ops) ops.classList.remove('hidden');
+            }
+        });
+
+        const setupRealtimeListeners = () => {
+            // Listener para Tickets (Colección pública)
+            const ordersRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+            onSnapshot(ordersRef, (snapshot) => {
+                orders = {};
+                snapshot.forEach(doc => {
+                    orders[doc.id] = doc.data();
+                });
+                refreshUI();
+            }, (error) => console.error("Error en orders listener:", error));
+
+            // Listener para Flota (Documento de configuración)
+            const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'staff');
+            onSnapshot(configRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    staff = snapshot.data().list || [];
+                } else {
+                    // Inicializar si no existe
+                    staff = ['Carlos M.', 'Ana R.', 'Mateo G.'];
+                    setDoc(configRef, { list: staff });
+                }
+                initCols();
+                refreshUI();
+            }, (error) => console.error("Error en staff listener:", error));
+        };
+
+        // --- FUNCIONES DE PERSISTENCIA ---
+
+        window.localCreateOrder = async (n, rep = null) => {
+            if (!currentUser) return;
+            const orderId = n.toString();
+            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+            
+            const newOrder = {
+                id: parseInt(n),
+                repartidor: rep || null,
+                status: rep ? 'en ruta' : 'nuevo',
+                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+                timestamp: Date.now()
+            };
+            
+            await setDoc(orderRef, newOrder);
+            playSound(rep ? "G4" : "E4");
+        };
+
+        window.localAssign = async (id, rep) => {
+            if (!currentUser || !orders[id]) return;
+            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', id.toString());
+            await updateDoc(orderRef, {
+                repartidor: rep || null,
+                status: rep ? 'en ruta' : 'nuevo',
+                timestamp: Date.now()
+            });
+            playSound("G4");
+        };
+
+        window.localFinalize = async (id) => {
+            if (!currentUser || !orders[id]) return;
+            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', id.toString());
+            await updateDoc(orderRef, {
+                status: 'entregado',
+                timestamp: Date.now()
+            });
+            playSound("C5");
+        };
+
+        window.localDeleteOrder = async (id) => {
+            if (!currentUser) return;
+            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', id.toString());
+            await deleteDoc(orderRef);
+            playSound("A2");
+        };
+
+        window.localUpdateStaff = async (newList) => {
+            if (!currentUser) return;
+            const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'staff');
+            await setDoc(configRef, { list: newList });
+        };
+
+        // Inicializar Auth al cargar
+        initAuth();
+
+        // Exponer funciones necesarias al scope global para los eventos inline de HTML
+        window.staff = () => staff;
+        window.orders = () => orders;
+
+        // Función pública para cerrar sesión (usa Firebase si está disponible)
+        window.doSignOut = async () => {
+            try {
+                if (typeof signOut === 'function' && auth) {
+                    await signOut(auth);
+                }
+            } catch (e) {
+                console.error('Error cerrando sesión:', e);
+            } finally {
+                window.location.href = 'index.html';
+            }
+        };
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #0f172a;
+            --accent-emerald: #10b981;
+            --accent-violet: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.05);
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        body.light-mode {
+            --bg-main: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-input: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: rgba(0,0,0,0.08);
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-main);
+            touch-action: manipulation; 
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-scroll::-webkit-scrollbar { width: 4px; }
+        .column-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; opacity: 0.3; }
+        
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background-color: rgba(2, 6, 23, 0.85); 
+            justify-content: center; 
+            align-items: center; 
+            backdrop-filter: blur(12px); 
+        }
+
+        .modal-content { 
+            background: var(--bg-card); 
+            padding: 32px; 
+            border-radius: 24px; 
+            width: 95%; 
+            max-width: 1100px; 
+            max-height: 90vh; 
+            overflow-y: auto; 
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 50px -12px var(--shadow); 
+        }
+        
+        .card-draggable { 
+            cursor: grab; 
+            user-select: none; 
+            touch-action: none; 
+            position: relative; 
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
+            background: var(--bg-card);
+            color: var(--text-main);
+        }
+        
+        .drop-zone-active { 
+            border: 2px dashed var(--accent-emerald) !important; 
+            background-color: rgba(16, 185, 129, 0.1) !important; 
+        }
+        
+        #drag-ghost { 
+            position: fixed; 
+            pointer-events: none; 
+            z-index: 9999; 
+            display: none; 
+            opacity: 0.9;
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 12px;
+            border: 2px solid var(--accent-emerald);
+            width: 180px;
+            box-shadow: 0 20px 25px -5px var(--shadow);
+            transform: scale(0.9);
+        }
+
+        .num-btn { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 10px; 
+            font-weight: 800; 
+            border-radius: 8px; 
+            transition: all 0.2s ease; 
+            border: 1px solid var(--border); 
+            background: var(--bg-card); 
+            color: var(--text-muted);
+            cursor: pointer;
+            height: 38px;
+        }
+        .num-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        .num-btn-delivered { background-color: var(--accent-emerald) !important; color: white !important; border-color: var(--accent-emerald) !important; }
+        .num-btn-active { border-color: currentColor; color: white; }
+
+        #loading-screen { 
+            position: fixed; inset: 0; 
+            background: var(--bg-main); 
+            z-index: 10001; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
+
+        input, select {
+            background: var(--bg-input) !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--border) !important;
+        }
+        
+        .glass-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        #header-section { flex-shrink: 0; }
+        #ops-panel { min-height: 160px; flex-shrink: 0; }
+        #kanban-container { flex-grow: 1; overflow-y: auto; }
+    </style>
+</head>
+<body class="p-4 md:px-8 md:pt-6">
+    <div id="loading-screen">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
+        <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Sincronizando con la Nube...</p>
+    </div>
+
+    <div id="drag-ghost"></div>
+
+    <div class="max-w-7xl mx-auto w-full flex flex-col h-full">
+        <!-- Header -->
+        <header id="header-section" class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+            <div class="flex items-center gap-4 flex-shrink-0">
+                <div class="bg-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xl flex-shrink-0">
+                    <i class="fas fa-cloud text-sm"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-black text-main tracking-tight uppercase leading-none mb-1">RUTATOTAL<span class="text-emerald-500">360</span></h1>
+                    <p id="user-display" class="text-[8px] text-emerald-500/80 font-mono uppercase tracking-tighter">CONECTANDO...</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center justify-center md:justify-end gap-2">
+                <button id="theme-toggle" class="px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-[9px] uppercase">
+                    <i class="fas fa-sun text-amber-500"></i> <span id="theme-text">MODO CLARO</span>
+                </button>
+                <button id="start-demo-btn" class="px-3 py-2 bg-emerald-600 text-white font-black rounded-lg shadow-lg hover:bg-emerald-500 transition-all flex items-center gap-2 text-[9px] uppercase">
+                    <i class="fas fa-terminal"></i> <span>ACTIVAR TERMINAL</span>
+                </button>
+                <button id="open-staff-modal-btn" class="px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-[9px] uppercase">
+                    <i class="fas fa-users text-emerald-500"></i> FLOTA
+                </button>
+                <button id="open-history-modal-btn" class="px-3 py-2 bg-violet-600/20 text-violet-400 font-bold rounded-lg border border-violet-500/30 hover:bg-violet-600/30 transition flex items-center gap-2 text-[9px] uppercase">
+                    <i class="fas fa-brain"></i> REPORTES
+                </button>
+                <button id="logoutBtn" onclick="window.doSignOut && window.doSignOut()" class="px-3 py-2 bg-red-600 text-white font-black rounded-lg shadow-lg hover:bg-red-500 transition-all flex items-center gap-2 text-[9px] uppercase">
+                    <i class="fas fa-sign-out-alt"></i> CERRAR SESIÓN
+                </button>
+            </div>
+        </header>
+
+        <!-- Matriz de Tickets -->
+        <div id="ops-panel" class="hidden w-full mb-4">
+            <div class="glass-panel rounded-2xl p-4 shadow-xl flex flex-col h-full overflow-hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Matriz de Tickets Rápidos (Bloques de 20)</h2>
+                    <div class="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-700">
+                        <button id="prev-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
+                        <span id="page-indicator" class="text-[9px] font-black px-2 text-emerald-500 uppercase">BLOQUE 1</span>
+                        <button id="next-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                    </div>
+                </div>
+                <div class="flex-grow overflow-hidden pb-2">
+                    <div id="slider-track" class="flex h-full transition-transform duration-500 ease-out"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Kanban -->
+        <main id="kanban-container" class="hidden">
+            <div id="orders-kanban" class="flex gap-4 overflow-x-auto pb-6 h-full">
+                <!-- Columna Entrada -->
+                <div class="flex flex-col flex-shrink-0 w-64">
+                    <div class="flex justify-between items-center mb-3 px-2">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Entrada Central</span>
+                        <span id="count-unassigned" class="bg-slate-800 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-slate-700">0</span>
+                    </div>
+                    <div id="col-unassigned" data-repartidor="" class="kanban-col flex flex-col gap-3 min-h-[300px] p-4 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700/30 overflow-y-auto column-scroll flex-grow"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modales -->
+    <div id="staffModal" class="modal">
+        <div class="modal-content max-w-sm">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-black text-main">Gestión de Flota</h2>
+                <button id="close-staff-modal-btn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="flex gap-2 mb-6">
+                <input type="text" id="new-staff-name" placeholder="Nombre..." class="w-full p-3 rounded-xl text-sm font-bold">
+                <button id="add-staff-btn" class="bg-emerald-600 text-white px-4 rounded-xl"><i class="fas fa-user-plus text-xs"></i></button>
+            </div>
+            <div id="staff-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-main">Centro de Reportes</h2>
+                <button id="close-history-modal-btn" class="text-slate-500 text-2xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+                <div class="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20">
+                    <p class="text-[8px] font-black uppercase text-slate-500 mb-1">Entregas Totales</p>
+                    <p id="stat-total-orders" class="text-3xl font-black text-emerald-500">0</p>
+                </div>
+                <div id="staff-performance-labels" class="md:col-span-3 flex flex-wrap gap-2"></div>
+            </div>
+            <div class="mb-4 relative">
+                <input type="text" id="history-search" placeholder="Buscar ticket..." class="w-full p-3 pl-10 rounded-xl text-sm font-bold">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            </div>
+            <div class="glass-panel rounded-2xl overflow-hidden">
+                <div class="max-h-[300px] overflow-y-auto column-scroll">
+                    <table class="w-full text-left text-xs">
+                        <thead class="sticky top-0 bg-slate-900"><tr class="text-slate-500 font-black"><th class="px-6 py-3 uppercase">Código</th><th class="px-6 py-3 uppercase">Operador</th><th class="px-6 py-3 uppercase">Estado</th><th class="px-6 py-3 text-right pr-6">Acción</th></tr></thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-800/50"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-between gap-4">
+                <button id="clear-history-btn" class="text-red-400 bg-red-400/10 px-6 py-3 rounded-xl font-black text-[9px] uppercase border border-red-400/20">Limpiar Todo</button>
+                <button id="download-pdf-btn" class="bg-violet-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase shadow-xl">Generar Reporte PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Declaraciones globales accesibles desde script type="module"
+        let currentSlide = 0;
+        let synth = null;
+        let searchQuery = "";
+        let touchDraggedId = null;
+        const COLORS = [{ bg: '#6366f1' }, { bg: '#8b5cf6' }, { bg: '#3b82f6' }, { bg: '#f59e0b' }, { bg: '#ec4899' }, { bg: '#06b6d4' }];
+
+        function playSound(f) { 
+            if (!synth) synth = new Tone.PolySynth(Tone.Synth).toDestination();
+            if (Tone.context.state !== 'running') Tone.start();
+            synth.triggerAttackRelease(f, "8n");
+        }
+
+        function refreshUI() {
+            const currentOrders = window.orders();
+            const currentStaff = window.staff();
+            renderKanban(currentOrders, currentStaff);
+            updateSliderUI(currentOrders, currentStaff);
+            updateHistoryUI(currentOrders, currentStaff);
+        }
+
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
+            }, 1000);
+        };
+
+        function updateSliderUI(currentOrders, currentStaff) {
+            document.querySelectorAll('.num-btn').forEach(b => {
+                const n = b.textContent;
+                const o = currentOrders[n];
+                b.classList.remove('num-btn-delivered', 'num-btn-active');
+                b.style.backgroundColor = ''; b.style.borderColor = ''; b.style.color = '';
+                if (o) {
+                    if (o.status === 'entregado') {
+                        b.classList.add('num-btn-delivered');
+                    } else if (o.repartidor) {
+                        const staffIdx = currentStaff.indexOf(o.repartidor);
+                        const assignedColor = staffIdx !== -1 ? COLORS[staffIdx % COLORS.length].bg : '#64748b';
+                        b.style.backgroundColor = assignedColor;
+                        b.style.borderColor = assignedColor;
+                        b.style.color = 'white';
+                        b.classList.add('num-btn-active');
+                    } else {
+                        b.style.borderColor = '#10b981';
+                        b.style.color = '#10b981';
+                    }
+                }
+            });
+            document.getElementById('page-indicator').textContent = `BLOQUE ${currentSlide + 1}`;
+        }
+
+        function initSlider() {
+            const track = document.getElementById('slider-track');
+            track.innerHTML = '';
+            const ticketsPerSlide = 20; 
+            const totalSlides = 5;      
+            
+            for (let p = 0; p < totalSlides; p++) {
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-10 grid-rows-2 gap-3 min-w-full p-1 h-full content-start';
+                for (let i = 1; i <= ticketsPerSlide; i++) {
+                    const n = p * ticketsPerSlide + i;
+                    const b = document.createElement('button');
+                    b.className = 'num-btn shadow-sm';
+                    b.textContent = n;
+                    b.onclick = () => window.localCreateOrder(n);
+                    grid.appendChild(b);
+                }
+                track.appendChild(grid);
+            }
+        }
+
+        function slideNumbers(d) {
+            currentSlide = Math.max(0, Math.min(4, currentSlide + d));
+            document.getElementById('slider-track').style.transform = `translateX(-${currentSlide * 100}%)`;
+            updateSliderUI(window.orders(), window.staff());
+        }
+
+        function initCols() {
+            const currentStaff = window.staff();
+            const container = document.getElementById('orders-kanban');
+            container.querySelectorAll('.rep-col').forEach(e => e.remove());
+            
+            const setupDropZone = (dz, repName) => {
+                dz.ondragover = (e) => e.preventDefault();
+                dz.ondragenter = (e) => { e.preventDefault(); dz.classList.add('drop-zone-active'); };
+                dz.ondragleave = (e) => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('drop-zone-active'); };
+                dz.ondrop = (e) => { dz.classList.remove('drop-zone-active'); window.localAssign(e.dataTransfer.getData('id'), repName); };
+            };
+
+            setupDropZone(document.getElementById('col-unassigned'), null);
+
+            currentStaff.forEach((r, idx) => {
+                const color = COLORS[idx % COLORS.length].bg;
+                const colId = `col-${r.replace(/\s/g, '')}`;
+                const inputId = `input-${r.replace(/\s/g, '')}`;
+                const col = document.createElement('div');
+                col.className = "flex flex-col flex-shrink-0 w-64 rep-col h-full";
+                col.innerHTML = `
+                    <div class="flex justify-between items-center mb-3 px-2">
+                        <span class="text-[9px] font-black uppercase tracking-widest" style="color: ${color}">${r}</span>
+                    </div>
+                    <div class="mb-3 flex gap-2">
+                        <input type="number" id="${inputId}" placeholder="ID..." class="w-full text-[10px] font-bold p-2.5 rounded-xl outline-none border border-slate-700">
+                        <button class="quick-add-btn text-white px-4 rounded-xl transition" style="background-color: ${color}"><i class="fas fa-bolt text-xs"></i></button>
+                    </div>
+                    <div id="${colId}" data-repartidor="${r}" class="kanban-col flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/50 overflow-y-auto column-scroll flex-grow"></div>
+                `;
+                const dz = col.querySelector('.kanban-col');
+                setupDropZone(dz, r);
+                col.querySelector('.quick-add-btn').onclick = () => {
+                    const input = document.getElementById(inputId);
+                    if (input.value) { window.localCreateOrder(input.value, r); input.value = ''; }
+                };
+                container.appendChild(col);
+            });
+        }
+
+        function renderKanban(currentOrders, currentStaff) {
+            const active = Object.values(currentOrders).filter(o => o.status !== 'entregado');
+            document.querySelectorAll('.kanban-col').forEach(c => c.innerHTML = '');
+            active.forEach(o => {
+                const card = document.createElement('div');
+                card.className = "glass-panel p-4 rounded-xl shadow-md card-draggable flex flex-col gap-3 border-l-4";
+                card.style.borderLeftColor = o.repartidor ? COLORS[currentStaff.indexOf(o.repartidor) % COLORS.length].bg : '#64748b';
+                card.draggable = true;
+                
+                let actionArea = o.repartidor ? 
+                    `<button class="finish-btn flex-1 bg-emerald-600/10 text-emerald-400 text-[8px] font-black py-2 rounded-lg uppercase border border-emerald-500/20">Finalizar</button>` :
+                    `<select class="assign-select flex-1 text-[8px] font-black rounded-lg p-2">
+                        <option value="">ASIGNAR...</option>
+                        ${currentStaff.map(r => `<option value="${r}">${r.toUpperCase()}</option>`).join('')}
+                    </select>`;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div><span class="text-[8px] font-black text-muted block uppercase">Ticket</span><span class="text-lg font-black text-main">#${o.id}</span></div>
+                        <div class="text-right">
+                            <span class="text-[8px] font-bold text-slate-500 block">${o.time}</span>
+                            <button class="delete-order-btn text-slate-700 hover:text-red-500 transition mt-1"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">${actionArea}</div>
+                `;
+
+                card.ondragstart = (e) => e.dataTransfer.setData('id', o.id);
+
+                card.ontouchstart = (e) => {
+                    const touch = e.touches[0];
+                    touchDraggedId = o.id;
+                    const dragGhost = document.getElementById('drag-ghost');
+                    dragGhost.innerHTML = card.innerHTML;
+                    dragGhost.style.display = 'block';
+                    dragGhost.style.left = `${touch.clientX - 90}px`;
+                    dragGhost.style.top = `${touch.clientY - 40}px`;
+                    dragGhost.style.borderLeft = card.style.borderLeft;
+                    card.style.opacity = "0.4";
+                };
+
+                card.ontouchmove = (e) => {
+                    if (!touchDraggedId) return;
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const dragGhost = document.getElementById('drag-ghost');
+                    dragGhost.style.left = `${touch.clientX - 90}px`;
+                    dragGhost.style.top = `${touch.clientY - 40}px`;
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const col = el?.closest('.kanban-col');
+                    document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drop-zone-active'));
+                    if (col) col.classList.add('drop-zone-active');
+                };
+
+                card.ontouchend = (e) => {
+                    if (!touchDraggedId) return;
+                    const dragGhost = document.getElementById('drag-ghost');
+                    const touch = e.changedTouches[0];
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const col = el?.closest('.kanban-col');
+                    if (col) {
+                        const newRep = col.getAttribute('data-repartidor') || null;
+                        window.localAssign(touchDraggedId, newRep);
+                    }
+                    dragGhost.style.display = 'none';
+                    card.style.opacity = "1";
+                    document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drop-zone-active'));
+                    touchDraggedId = null;
+                };
+
+                card.querySelector('.delete-order-btn').onclick = () => confirm(`¿Eliminar #${o.id}?`) && window.localDeleteOrder(o.id);
+                if (card.querySelector('.finish-btn')) card.querySelector('.finish-btn').onclick = () => window.localFinalize(o.id);
+                if (card.querySelector('.assign-select')) card.querySelector('.assign-select').onchange = (e) => window.localAssign(o.id, e.target.value);
+
+                const targetColId = o.repartidor ? `col-${o.repartidor.replace(/\s/g, '')}` : 'col-unassigned';
+                document.getElementById(targetColId)?.appendChild(card);
+            });
+            document.getElementById('count-unassigned').textContent = active.filter(o => !o.repartidor).length;
+        }
+
+        function updateHistoryUI(currentOrders, currentStaff) {
+            const all = Object.values(currentOrders);
+            document.getElementById('stat-total-orders').textContent = all.filter(o => o.status === 'entregado').length;
+            const perf = document.getElementById('staff-performance-labels'); perf.innerHTML = '';
+            currentStaff.forEach((r, i) => {
+                const count = all.filter(o => o.repartidor === r).length;
+                const ok = all.filter(o => o.repartidor === r && o.status === 'entregado').length;
+                perf.innerHTML += `<div class="bg-slate-900 border border-slate-800 p-3 rounded-xl min-w-[100px]">
+                    <p class="text-[7px] font-black text-slate-500 uppercase mb-1" style="color:${COLORS[i%COLORS.length].bg}">${r}</p>
+                    <div class="flex items-baseline gap-1"><span class="text-xl font-black text-white">${count}</span><span class="text-[8px] font-black text-emerald-500">${ok} OK</span></div>
+                </div>`;
+            });
+
+            const tbody = document.getElementById('history-table-body'); tbody.innerHTML = '';
+            const filtered = all.filter(o => o.id.toString().includes(searchQuery)).sort((a,b) => b.timestamp - a.timestamp);
+
+            filtered.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="px-6 py-3 font-black">#${o.id}</td><td class="px-6 py-3 font-bold">${o.repartidor || '-'}</td><td class="px-6 py-3 uppercase text-[8px]">${o.status}</td><td class="px-6 py-3 text-right"><button class="text-slate-700 hover:text-red-500 transition"><i class="fas fa-trash"></i></button></td>`;
+                tr.querySelector('button').onclick = () => confirm(`¿Eliminar #${o.id}?`) && window.localDeleteOrder(o.id);
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('history-search').oninput = (e) => { searchQuery = e.target.value; updateHistoryUI(window.orders(), window.staff()); };
+        document.getElementById('theme-toggle').onclick = () => {
+            document.body.classList.toggle('light-mode');
+            const isL = document.body.classList.contains('light-mode');
+            document.getElementById('theme-text').textContent = isL ? 'MODO OSCURO' : 'MODO CLARO';
+        };
+
+        document.getElementById('start-demo-btn').onclick = () => {
+            document.getElementById('ops-panel').classList.remove('hidden');
+            document.getElementById('kanban-container').classList.remove('hidden');
+            document.getElementById('start-demo-btn').innerHTML = '<i class="fas fa-check-circle"></i> TERMINAL';
+            initSlider(); refreshUI();
+        };
+
+        document.getElementById('prev-btn').onclick = () => slideNumbers(-1);
+        document.getElementById('next-btn').onclick = () => slideNumbers(1);
+
+        document.getElementById('open-staff-modal-btn').onclick = () => {
+            const list = document.getElementById('staff-list'); list.innerHTML = '';
+            const currentStaff = window.staff();
+            currentStaff.forEach((n, i) => {
+                list.innerHTML += `<div class="flex justify-between items-center p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span class="font-black text-slate-300 text-[10px] uppercase">${n}</span>
+                    <button class="remove-staff text-red-500/50 hover:text-red-500" data-idx="${i}"><i class="fas fa-times-circle"></i></button>
+                </div>`;
+            });
+            document.querySelectorAll('.remove-staff').forEach(b => b.onclick = () => {
+                const currentStaff = window.staff();
+                const nl = [...currentStaff]; nl.splice(b.dataset.idx, 1); window.localUpdateStaff(nl);
+                document.getElementById('open-staff-modal-btn').click();
+            });
+            document.getElementById('staffModal').style.display='flex';
+        };
+
+        document.getElementById('add-staff-btn').onclick = () => {
+            const v = document.getElementById('new-staff-name').value.trim();
+            const currentStaff = window.staff();
+            if(v && !currentStaff.includes(v)){ 
+                window.localUpdateStaff([...currentStaff, v]); 
+                document.getElementById('new-staff-name').value=''; 
+                document.getElementById('open-staff-modal-btn').click();
+            }
+        };
+
+        document.getElementById('open-history-modal-btn').onclick = () => { document.getElementById('historyModal').style.display='flex'; updateHistoryUI(window.orders(), window.staff()); };
+        document.getElementById('close-history-modal-btn').onclick = () => document.getElementById('historyModal').style.display='none';
+        document.getElementById('close-staff-modal-btn').onclick = () => document.getElementById('staffModal').style.display='none';
+        
+        document.getElementById('clear-history-btn').onclick = async () => {
+            if(!confirm("¿Purgar todos los registros de la nube?")) return;
+            const currentOrders = window.orders();
+            for(let id in currentOrders) {
+                await window.localDeleteOrder(id);
+            }
+        };
+
+        document.getElementById('download-pdf-btn').onclick = () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const allOrders = Object.values(window.orders());
+            const currentStaff = window.staff();
+            const dateStr = new Date().toLocaleString();
+
+            doc.setFontSize(22);
+            doc.text("REPORTE LOGÍSTICO RUTATOTAL 360", 15, 20);
+            doc.setFontSize(10);
+            doc.text(`Fecha de emisión: ${dateStr}`, 15, 28);
+            
+            doc.setFontSize(14);
+            doc.text("RESUMEN POR OPERADOR", 15, 40);
+            
+            let yPos = 48;
+            currentStaff.forEach((r, i) => {
+                const personalOrders = allOrders.filter(o => o.repartidor === r);
+                const delivered = personalOrders.filter(o => o.status === 'entregado').length;
+                const total = personalOrders.length;
+                
+                doc.setFontSize(10);
+                doc.setTextColor(40, 40, 40);
+                doc.text(`${r.toUpperCase()}:`, 15, yPos);
+                doc.setFont(undefined, 'bold');
+                doc.text(`${total} pedidos registrados (${delivered} entregados)`, 50, yPos);
+                doc.setFont(undefined, 'normal');
+                yPos += 7;
+            });
+
+            yPos += 10;
+            currentStaff.forEach((r) => {
+                const personalOrders = allOrders.filter(o => o.repartidor === r).sort((a,b) => b.timestamp - a.timestamp);
+                
+                if (personalOrders.length > 0) {
+                    if (yPos > 240) { doc.addPage(); yPos = 20; }
+                    
+                    doc.setFontSize(12);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`TABLA DE CONTROL: ${r.toUpperCase()}`, 15, yPos);
+                    
+                    doc.autoTable({
+                        startY: yPos + 5,
+                        head: [['TICKET ID', 'ESTADO', 'HORA REGISTRO']],
+                        body: personalOrders.map(o => [`#${o.id}`, o.status.toUpperCase(), o.time]),
+                        theme: 'striped',
+                        headStyles: { fillColor: [63, 81, 181] },
+                        margin: { left: 15 }
+                    });
+                    
+                    yPos = doc.lastAutoTable.finalY + 15;
+                }
+            });
+
+            if (yPos > 220) { doc.addPage(); yPos = 20; }
+            doc.setFontSize(12);
+            doc.text("TABLA GENERAL DE OPERACIONES (ORDEN ASCENDENTE)", 15, yPos);
+            
+            const sortedAllOrders = allOrders.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+            doc.autoTable({
+                startY: yPos + 5,
+                head: [['ID', 'OPERADOR', 'ESTADO', 'HORA']],
+                body: sortedAllOrders.map(o => [`#${o.id}`, o.repartidor || 'SIN ASIGNAR', o.status.toUpperCase(), o.time]),
+                theme: 'grid',
+                headStyles: { fillColor: [30, 41, 59] }
+            });
+
+            doc.save(`Reporte_Logistico_Firebase_${Date.now()}.pdf`);
+        };
+    </script>
+</body>
+</html>
