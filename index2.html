@@ -359,11 +359,12 @@
             </div>
         </header>
 
-        <!-- Matriz de Tickets -->
+        <!-- Matriz de Tickets - cocina - preparación - ya tomados -->
         <div id="ops-panel" class="hidden w-full mb-4">
             <div class="glass-panel rounded-2xl p-4 shadow-xl flex flex-col h-full overflow-hidden">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Matriz de Tickets Rápidos (Bloques de 20)</h2>
+                    <h2 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">COCINA 
+                        (De a 20 pedidos)</h2>
                     <div class="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-700">
                         <button id="prev-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
                         <span id="page-indicator" class="text-[9px] font-black px-2 text-emerald-500 uppercase">BLOQUE 1</span>
@@ -379,10 +380,10 @@
         <!-- Main Kanban -->
         <main id="kanban-container" class="hidden">
             <div id="orders-kanban" class="flex gap-4 overflow-x-auto pb-6 h-full">
-                <!-- Columna Entrada -->
+                <!-- Columna Entrada - LISTOS PARA DESPACHAR / BARRA o mesada -->
                 <div class="flex flex-col flex-shrink-0 w-64">
                     <div class="flex justify-between items-center mb-3 px-2">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Entrada Central</span>
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Mostrador de despacho</span>
                         <span id="count-unassigned" class="bg-slate-800 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-slate-700">0</span>
                     </div>
                     <div id="col-unassigned" data-repartidor="" class="kanban-col flex flex-col gap-3 min-h-[300px] p-4 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700/30 overflow-y-auto column-scroll flex-grow"></div>
