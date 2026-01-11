@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     
     <!-- Firebase SDKs -->
     <script type="module">
@@ -191,10 +192,10 @@
             --bg-main: #0f172a;
             --bg-card: #1e293b;
             --bg-input: #0f172a;
-            --cocina-bg: linear-gradient(180deg, rgba(59,130,246,0.06), rgba(99,102,241,0.03));
-            --mostrador-bg: rgba(16,185,129,0.06);
+            --cocina-bg: var(--mostrador-bg);
+            --mostrador-bg: #4D2610;
             --repartidor-bg: rgba(139,92,246,0.06);
-            --accent-emerald: #10b981;
+            --accent-emerald: #10b981;       
             --accent-violet: #8b5cf6;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
@@ -203,13 +204,14 @@
         }
 
         body.light-mode {
+         
             --bg-main: #f1f5f9;
             --bg-card: #ffffff;
             --bg-input: #f8fafc;
-            --cocina-bg: linear-gradient(180deg, rgba(99,102,241,0.06), rgba(59,130,246,0.03));
-            --mostrador-bg: rgba(16,185,129,0.04);
+            --cocina-bg: var(--mostrador-bg);
+            --mostrador-bg: #4D2610;
             --repartidor-bg: rgba(139,92,246,0.04);
-            --text-main: #0f172a;
+            --text-main: #0f172a;     
             --text-muted: #64748b;
             --border: rgba(0,0,0,0.08);
             --shadow: rgba(0, 0, 0, 0.1);
@@ -222,11 +224,11 @@
             touch-action: manipulation; 
             overflow: hidden;
             transition: background-color 0.3s ease, color 0.3s ease;
-            height: 100vh;
+            height: 100vh; 
             display: flex;
             flex-direction: column;
         }
-
+ 
         .column-scroll::-webkit-scrollbar { width: 4px; }
         .column-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; opacity: 0.3; }
         
@@ -254,35 +256,7 @@
             box-shadow: 0 25px 50px -12px var(--shadow); 
         }
         
-        .card-draggable { 
-            cursor: grab; 
-            user-select: none; 
-            touch-action: none; 
-            position: relative; 
-            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
-            background: var(--bg-card);
-            color: var(--text-main);
-        }
-        
-        .drop-zone-active { 
-            border: 2px dashed var(--accent-emerald) !important; 
-            background-color: rgba(16, 185, 129, 0.1) !important; 
-        }
-        
-        #drag-ghost { 
-            position: fixed; 
-            pointer-events: none; 
-            z-index: 9999; 
-            display: none; 
-            opacity: 0.9;
-            background: var(--bg-card);
-            padding: 12px;
-            border-radius: 12px;
-            border: 2px solid var(--accent-emerald);
-            width: 180px;
-            box-shadow: 0 20px 25px -5px var(--shadow);
-            transform: scale(0.9);
-        }
+        /* Drag & Drop ahora gestionado por SortableJS; estilos antiguos removidos */
 
         .num-btn { 
             display: flex; 
@@ -346,44 +320,70 @@
             transform: translateX(0);
         }
 
-        /* Zona Cocina: Matriz de Tickets - usar mismo verde que Mostrador */
+        /* Zona Cocina: Matriz de Tickets - ahora azul profundo / cian */
         .cocina-panel {
-            background: rgba(16,185,129,0.12) !important;
-            border-color: rgba(16,185,129,0.28) !important;
-            box-shadow: 0 8px 30px rgba(16,185,129,0.06);
+            background: var(--cocina-bg) !important;
+            border-color: rgba(6,182,212,0.28) !important;
+            box-shadow: 0 8px 30px rgba(6,182,212,0.06);
             transition: box-shadow 200ms ease, background-color 200ms ease, border-color 200ms ease;
         }
 
         body.light-mode .cocina-panel {
-            background: rgba(16,185,129,0.22) !important;
-            border-color: rgba(16,185,129,0.40) !important;
-            box-shadow: 0 8px 30px rgba(16,185,129,0.10);
+            background: var(--cocina-bg) !important;
+            border-color: rgba(6,182,212,0.40) !important;
+            box-shadow: 0 8px 30px rgba(6,182,212,0.10);
         }
 
         /* Zona Mostrador: Columna Entrada (resaltada para modo oscuro y claro) */
         #col-unassigned {
-            background: rgba(16,185,129,0.12) !important;
-            border-color: rgba(16,185,129,0.28) !important;
-            box-shadow: 0 8px 30px rgba(16,185,129,0.06);
+            background: var(--mostrador-bg) !important;
+            border-color: rgba(26,34,56,0.28) !important;
+            box-shadow: 0 8px 30px rgba(26,34,56,0.06);
             transition: box-shadow 200ms ease, background-color 200ms ease, border-color 200ms ease;
         }
 
         body.light-mode #col-unassigned {
-            /* Verde más pronunciado en modo claro */
-            background: rgba(16,185,129,0.22) !important;
-            border-color: rgba(16,185,129,0.40) !important;
-            box-shadow: 0 8px 30px rgba(16,185,129,0.10);
+            background: var(--mostrador-bg) !important;
+            border-color: rgba(26,34,56,0.40) !important;
+            box-shadow: 0 8px 30px rgba(26,34,56,0.10);
         }
 
         /* Contador de pedidos en Mostrador: más visible */
         #count-unassigned {
-            background-color: var(--accent-emerald) !important;
+            background-color: var(--mostrador-bg) !important;
             color: #ffffff !important;
-            border: 1px solid rgba(6,95,60,0.25) !important;
-            box-shadow: 0 6px 14px rgba(16,185,129,0.12);
+            border: 1px solid rgba(26,34,56,0.25) !important;
+            box-shadow: 0 6px 14px rgba(26,34,56,0.12);
         }
 
         /* Repartidores: fondo distintivo para cada columna (aplicado desde JS) */
+        /* Forzar que el fondo de las columnas de repartidores use el fondo principal (modo oscuro) */
+        .rep-col .kanban-col {
+            background: var(--bg-main) !important;
+        }
+
+        /* En modo claro, forzar fondo oscuro para columnas de repartidores (evita fondo blanco) */
+        body.light-mode .rep-col .kanban-col {
+            background: #0f172a !important;
+        }
+
+        /* En modo oscuro: tarjetas de pedidos (Cocina, Mostrador, Repartidores) deben ser blancas */
+        body:not(.light-mode) .kanban-col .glass-panel {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            /* Mantener borde izquierdo para que JS pueda colorearlo (no sobreescribir border-left-width) */
+            border-top: 1px solid rgba(0,0,0,0.08);
+            border-right: 1px solid rgba(0,0,0,0.08);
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            box-shadow: 0 8px 20px rgba(2,6,23,0.06) !important;
+        }
+
+        /* En modo oscuro: botones numéricos de la cocina (tickets) deben ser blancos por defecto, pero permitir estilos inline (JS) */
+        body:not(.light-mode) .cocina-panel .num-btn {
+            background: #ffffff;
+            color: #0f172a;
+            border-color: rgba(0,0,0,0.08);
+        }
 
         /* Reducir en 15% el ancho de cada columna de repartidor */
         .rep-col {
@@ -393,17 +393,75 @@
         #header-section { flex-shrink: 0; }
         #ops-panel { min-height: 160px; flex-shrink: 0; }
         #kanban-container { flex-grow: 1; overflow-y: auto; }
+
+        /* Evita fondo blanco del contenedor principal en modo claro */
+        body.light-mode .app-main-wrap {
+            background-color: #e0e7ff; /* tono más oscuro y profesional */
+           
+            padding: 1rem; /* alineado con p-4 del body */
+            box-sizing: border-box;
+            border-radius: 1rem;
+              border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.1);/* 0 0 15px rgba(0, 150, 255, 0.2)*/
+            transition: box-shadow 220ms ease, border-color 220ms ease;
+        }
+        @media (min-width: 768px) {
+            /* en pantallas medianas y grandes alinear con md:px-8 y md:pt-6 */
+            body.light-mode .app-main-wrap, body.dark-mode .app-main-wrap { padding:1rem 1.8rem 0.0rem 1.8rem; }
+        }
+
+        /* Estilos específicos para Modo Oscuro (solo cuando body tenga la clase 'dark-mode') */
+        body.dark-mode .app-main-wrap {
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.1);
+            transition: box-shadow 220ms ease, border-color 220ms ease;
+             border-radius: 1rem;
+        }
+
+        /* Botones 'FINALIZAR' estilizados (dentro de tickets blancos) */
+        body:not(.light-mode) .kanban-col .glass-panel .finish-btn {
+            background-color: #e8f5e9 !important; /* Verde menta suave */
+            color: #064e3b !important; /* Verde oscuro legible */
+            border: none !important;
+            border-radius: 8px !important;
+            font-weight: 700 !important;
+            letter-spacing: 1px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: none !important;
+            cursor: pointer !important;
+            padding: 0.5rem 0.9rem !important;
+            text-transform: uppercase !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        body:not(.light-mode) .kanban-col .glass-panel .finish-btn:hover {
+            background-color: #10b981 !important; /* Verde esmeralda sólido */
+            color: #ffffff !important;
+            box-shadow: 0 8px 24px rgba(16,185,129,0.16) !important;
+        }
+
+        body:not(.light-mode) .kanban-col .glass-panel .finish-btn:active {
+            transform: scale(0.98) !important;
+        }
+
+        body:not(.light-mode) .kanban-col .glass-panel .finish-btn:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 4px rgba(16,185,129,0.12) !important;
+        }
     </style>
 </head>
 <body class="p-4 md:px-8 md:pt-6">
+    
     <div id="loading-screen">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
         <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Sincronizando con la Nube...</p>
     </div>
 
-    <div id="drag-ghost"></div>
+    <!-- Drag ghost removed: SortableJS handles drag visuals -->
 
-    <div class="max-w-7xl mx-auto w-full flex flex-col h-full">
+    <div class="max-w-7xl mx-auto w-full flex flex-col h-full app-main-wrap">
         <!-- Header -->
         <header id="header-section" class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
             <div class="flex items-center gap-4 flex-shrink-0">
@@ -412,26 +470,28 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-black text-main tracking-tight uppercase leading-none mb-1">RUTATOTAL<span class="text-emerald-500">360</span></h1>
-                    <p id="user-display" class="text-[8px] text-emerald-500/80 font-mono uppercase tracking-tighter">CONECTANDO...</p>
+                    <p id="user-display" class="text-sm text-emerald-500/80 font-mono uppercase tracking-tighter">CONECTANDO...</p>
                 </div>
             </div>
             
             <div class="flex flex-wrap items-center justify-center md:justify-end gap-2">
-                <button id="theme-toggle" class="header-icon-btn px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-[9px] uppercase">
-                    <i class="fas fa-sun text-amber-500"></i><span id="theme-text" class="btn-label">MODO CLARO</span>
-                </button>
-                <button id="start-demo-btn" class="header-icon-btn px-3 py-2 bg-emerald-600 text-white font-black rounded-lg shadow-lg hover:bg-emerald-500 transition-all flex items-center gap-2 text-[9px] uppercase">
+               
+                <button id="start-demo-btn" class="header-icon-btn px-3 py-2 bg-emerald-600 text-white font-black rounded-lg shadow-lg hover:bg-emerald-500 transition-all flex items-center gap-2 text-xs uppercase">
                     <i class="fas fa-terminal"></i><span class="btn-label">ACTIVAR TERMINAL</span>
                 </button>
-                <button id="open-staff-modal-btn" class="header-icon-btn px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-[9px] uppercase">
+                <button id="open-staff-modal-btn" class="header-icon-btn px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-xs uppercase">
                     <i class="fas fa-users text-emerald-500"></i><span class="btn-label">FLOTA</span>
                 </button>
-                <button id="open-history-modal-btn" class="header-icon-btn px-3 py-2 bg-violet-600/20 text-violet-400 font-bold rounded-lg border border-violet-500/30 hover:bg-violet-600/30 transition flex items-center gap-2 text-[9px] uppercase">
+                <button id="open-history-modal-btn" class="header-icon-btn px-3 py-2 bg-violet-600/20 text-violet-400 font-bold rounded-lg border border-violet-500/30 hover:bg-violet-600/30 transition flex items-center gap-2 text-xs uppercase">
                     <i class="fas fa-brain"></i><span class="btn-label">REPORTES</span>
                 </button>
-                <button id="logoutBtn" onclick="window.doSignOut && window.doSignOut()" class="header-icon-btn px-3 py-2 bg-red-600 text-white font-black rounded-lg shadow-lg hover:bg-red-500 transition-all flex items-center gap-2 text-[9px] uppercase">
+                <button id="theme-toggle" class="header-icon-btn px-3 py-2 glass-panel text-slate-300 font-bold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 text-xs uppercase">
+                    <i class="fas fa-sun text-amber-500"></i><span id="theme-text" class="btn-label">MODO CLARO</span>
+                </button>
+                <button id="logoutBtn" onclick="window.doSignOut && window.doSignOut()" class="header-icon-btn px-3 py-2 bg-red-600 text-white font-black rounded-lg shadow-lg hover:bg-red-500 transition-all flex items-center gap-2 text-xs uppercase">
                     <i class="fas fa-sign-out-alt"></i><span class="btn-label">CERRAR SESIÓN</span>
                 </button>
+                 
             </div>
         </header>
 
@@ -439,12 +499,12 @@
         <div id="ops-panel" class="hidden w-full mb-4">
             <div class="glass-panel cocina-panel rounded-2xl p-4 shadow-xl flex flex-col h-full overflow-hidden">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">COCINA 
+                    <h2 class="text-xs font-black text-slate-500 uppercase tracking-widest">COCINA 
                         (De a 20 pedidos)</h2>
                     <div class="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-700">
-                        <button id="prev-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
-                        <span id="page-indicator" class="text-[9px] font-black px-2 text-emerald-500 uppercase">BLOQUE 1</span>
-                        <button id="next-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                        <button id="prev-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-left text-sm"></i></button>
+                        <span id="page-indicator" class="text-xs font-black px-2 text-emerald-500 uppercase">BLOQUE 1</span>
+                        <button id="next-btn" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded-md transition text-slate-400"><i class="fas fa-chevron-right text-sm"></i></button>
                     </div>
                 </div>
                 <div class="flex-grow overflow-hidden pb-2">
@@ -459,8 +519,8 @@
                 <!-- Columna Entrada - LISTOS PARA DESPACHAR / BARRA o mesada -->
                 <div class="flex flex-col flex-shrink-0 w-64">
                     <div class="flex justify-between items-center mb-3 px-2">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Mostrador de despacho</span>
-                        <span id="count-unassigned" class="bg-slate-800 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-slate-700">0</span>
+                        <span class="text-xs font-black text-slate-500 uppercase tracking-widest">Mostrador de despacho</span>
+                        <span id="count-unassigned" class="bg-slate-800 text-emerald-400 text-xs font-black px-2 py-0.5 rounded-md border border-slate-700">0</span>
                     </div>
                     <div id="col-unassigned" data-repartidor="" class="kanban-col flex flex-col gap-3 min-h-[300px] p-4 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700/30 overflow-y-auto column-scroll flex-grow"></div>
                 </div>
@@ -491,7 +551,7 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
                 <div class="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20">
-                    <p class="text-[8px] font-black uppercase text-slate-500 mb-1">Entregas Totales</p>
+                    <p class="text-sm font-black uppercase text-slate-500 mb-1">Entregas Totales</p>
                     <p id="stat-total-orders" class="text-3xl font-black text-emerald-500">0</p>
                 </div>
                 <div id="staff-performance-labels" class="md:col-span-3 flex flex-wrap gap-2"></div>
@@ -509,8 +569,8 @@
                 </div>
             </div>
             <div class="mt-6 flex justify-between gap-4">
-                <button id="clear-history-btn" class="text-red-400 bg-red-400/10 px-6 py-3 rounded-xl font-black text-[9px] uppercase border border-red-400/20">Limpiar Todo</button>
-                <button id="download-pdf-btn" class="bg-violet-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase shadow-xl">Generar Reporte PDF</button>
+                <button id="clear-history-btn" class="text-red-400 bg-red-400/10 px-6 py-3 rounded-xl font-black text-xs uppercase border border-red-400/20">Limpiar Todo</button>
+                <button id="download-pdf-btn" class="bg-violet-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-xl">Generar Reporte PDF</button>
             </div>
         </div>
     </div>
@@ -522,6 +582,30 @@
         let searchQuery = "";
         let touchDraggedId = null;
         const COLORS = [{ bg: '#6366f1' }, { bg: '#8b5cf6' }, { bg: '#3b82f6' }, { bg: '#f59e0b' }, { bg: '#ec4899' }, { bg: '#06b6d4' }];
+
+        // Paleta de colores específica por repartidor (match parcial, case-insensitive)
+        const STAFF_COLOR_MAP = {
+            lucas: '#007BFF',    // Azul Eléctrico
+            juan:  '#8A2BE2',    // Violeta Neón
+            pedro: '#FF8C00',    // Naranja Intenso
+            cri:   '#FFD700'     // Amarillo Oro
+        };
+
+        function getStaffColor(name, idx){
+            if(!name) return COLORS[Math.abs(idx) % COLORS.length].bg;
+            const key = name.toLowerCase();
+            for(const k in STAFF_COLOR_MAP){
+                if(key.includes(k)) return STAFF_COLOR_MAP[k];
+            }
+            // Deterministic fallback: hash the name to pick a color from COLORS
+            let h = 0;
+            for(let i = 0; i < key.length; i++){
+                h = ((h << 5) - h) + key.charCodeAt(i);
+                h |= 0; // force 32-bit int
+            }
+            const idxFromName = Math.abs(h) % COLORS.length;
+            return COLORS[idxFromName].bg;
+        }
 
         function playSound(f) { 
             if (!synth) synth = new Tone.PolySynth(Tone.Synth).toDestination();
@@ -555,7 +639,7 @@
                         b.classList.add('num-btn-delivered');
                     } else if (o.repartidor) {
                         const staffIdx = currentStaff.indexOf(o.repartidor);
-                        const assignedColor = staffIdx !== -1 ? COLORS[staffIdx % COLORS.length].bg : '#64748b';
+                        const assignedColor = getStaffColor(o.repartidor, staffIdx) || '#64748b';
                         b.style.backgroundColor = assignedColor;
                         b.style.borderColor = assignedColor;
                         b.style.color = 'white';
@@ -608,45 +692,52 @@
             const currentStaff = window.staff();
             const container = document.getElementById('orders-kanban');
             container.querySelectorAll('.rep-col').forEach(e => e.remove());
-            
-            const setupDropZone = (dz, repName) => {
-                dz.ondragover = (e) => e.preventDefault();
-                dz.ondragenter = (e) => { e.preventDefault(); dz.classList.add('drop-zone-active'); };
-                dz.ondragleave = (e) => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('drop-zone-active'); };
-                dz.ondrop = (e) => { dz.classList.remove('drop-zone-active'); window.localAssign(e.dataTransfer.getData('id'), repName); };
-            };
 
-            setupDropZone(document.getElementById('col-unassigned'), null);
-
+            // Create columns for each staff member
             currentStaff.forEach((r, idx) => {
-                const color = COLORS[idx % COLORS.length].bg;
+                const color = getStaffColor(r, idx);
                 const colId = `col-${r.replace(/\s/g, '')}`;
                 const inputId = `input-${r.replace(/\s/g, '')}`;
                 const col = document.createElement('div');
                 col.className = "flex flex-col flex-shrink-0 w-64 rep-col h-full";
                 col.innerHTML = `
                     <div class="flex justify-between items-center mb-3 px-2">
-                        <span class="text-[9px] font-black uppercase tracking-widest" style="color: ${color}">${r}</span>
+                        <span class="text-xs font-black uppercase tracking-widest" style="color: ${color}">${r}</span>
                     </div>
                     <div class="mb-3 flex gap-2">
-                        <input type="number" id="${inputId}" placeholder="ID..." class="w-full text-[10px] font-bold p-2.5 rounded-xl outline-none border border-slate-700">
+                        <input type="number" id="${inputId}" placeholder="ID..." class="w-full text-sm font-bold p-2.5 rounded-xl outline-none border border-slate-700">
                         <button class="quick-add-btn text-white px-4 rounded-xl transition" style="background-color: ${color}"><i class="fas fa-bolt text-xs"></i></button>
                     </div>
                     <div id="${colId}" data-repartidor="${r}" class="kanban-col flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/50 overflow-y-auto column-scroll flex-grow"></div>
                 `;
                 const dz = col.querySelector('.kanban-col');
-                setupDropZone(dz, r);
-                // Apply a soft tint for the repartidor column using the staff color
                 try{
-                    // Apply a lighter tint so repartidor columns are visually distinct
-                    dz.style.backgroundColor = hexToRgba(color, 0.50);
+                    dz.style.setProperty('background-color','var(--bg-main)');
                     dz.style.borderColor = hexToRgba(color, 0.12);
-                }catch(e){ /* ignore if color parsing fails */ }
+                }catch(e){ }
                 col.querySelector('.quick-add-btn').onclick = () => {
                     const input = document.getElementById(inputId);
                     if (input.value) { window.localCreateOrder(input.value, r); input.value = ''; }
                 };
                 container.appendChild(col);
+            });
+
+            // Initialize SortableJS on all kanban columns (including col-unassigned)
+            document.querySelectorAll('.kanban-col').forEach(col => {
+                if (col._sortable) {
+                    try { col._sortable.destroy(); } catch(e) { }
+                }
+                col._sortable = new Sortable(col, {
+                    group: 'kanban',
+                    animation: 150,
+                    delay: 100,
+                    delayOnTouchOnly: true,
+                    onEnd: function(evt) {
+                        const id = evt.item?.dataset?.id;
+                        const newRep = evt.to?.getAttribute('data-repartidor') || null;
+                        if (id && window.localAssign) window.localAssign(id, newRep);
+                    }
+                });
             });
         }
 
@@ -655,70 +746,31 @@
             document.querySelectorAll('.kanban-col').forEach(c => c.innerHTML = '');
             active.forEach(o => {
                 const card = document.createElement('div');
-                card.className = "glass-panel p-4 rounded-xl shadow-md card-draggable flex flex-col gap-3 border-l-4";
-                card.style.borderLeftColor = o.repartidor ? COLORS[currentStaff.indexOf(o.repartidor) % COLORS.length].bg : '#64748b';
-                card.draggable = true;
+                card.className = "glass-panel p-4 rounded-xl shadow-md flex flex-col gap-3 border-l-4";
+                card.dataset.id = o.id;
+                const staffIdx = currentStaff.indexOf(o.repartidor);
+                const staffColor = o.repartidor ? getStaffColor(o.repartidor, staffIdx) : '#64748b';
+                card.style.borderLeftColor = staffColor;
                 
                 let actionArea = o.repartidor ? 
-                    `<button class="finish-btn flex-1 bg-emerald-600/10 text-emerald-400 text-[8px] font-black py-2 rounded-lg uppercase border border-emerald-500/20">Finalizar</button>` :
-                    `<select class="assign-select flex-1 text-[8px] font-black rounded-lg p-2">
+                    `<button class="finish-btn flex-1 bg-emerald-600/10 text-emerald-400 text-sm font-black py-2 rounded-lg uppercase border border-emerald-500/20">Finalizar</button>` :
+                    `<select class="assign-select flex-1 text-sm font-black rounded-lg p-2">
                         <option value="">ASIGNAR...</option>
                         ${currentStaff.map(r => `<option value="${r}">${r.toUpperCase()}</option>`).join('')}
                     </select>`;
                 
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div><span class="text-[8px] font-black text-muted block uppercase">Ticket</span><span class="text-lg font-black text-main">#${o.id}</span></div>
+                        <div><span class="text-sm font-black text-muted block uppercase">Ticket</span><span class="text-lg font-black text-main">#${o.id}</span></div>
                         <div class="text-right">
-                            <span class="text-[8px] font-bold text-slate-500 block">${o.time}</span>
-                            <button class="delete-order-btn text-slate-700 hover:text-red-500 transition mt-1"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                            <span class="text-sm font-bold text-slate-500 block">${o.time}</span>
+                            <span class="text-sm font-black block uppercase" style="color:${o.repartidor ? 'inherit' : '#67e8f9'}">${o.repartidor ? o.repartidor : 'EN CASA'}</span>
+                            ${o.repartidor ? '' : '<span class="text-sm block text-slate-400">Control local</span>'}
+                            <button class="delete-order-btn text-slate-700 hover:text-red-500 transition mt-1"><i class="fas fa-trash-alt text-sm"></i></button>
                         </div>
                     </div>
                     <div class="flex gap-2">${actionArea}</div>
-                `;
-
-                card.ondragstart = (e) => e.dataTransfer.setData('id', o.id);
-
-                card.ontouchstart = (e) => {
-                    const touch = e.touches[0];
-                    touchDraggedId = o.id;
-                    const dragGhost = document.getElementById('drag-ghost');
-                    dragGhost.innerHTML = card.innerHTML;
-                    dragGhost.style.display = 'block';
-                    dragGhost.style.left = `${touch.clientX - 90}px`;
-                    dragGhost.style.top = `${touch.clientY - 40}px`;
-                    dragGhost.style.borderLeft = card.style.borderLeft;
-                    card.style.opacity = "0.4";
-                };
-
-                card.ontouchmove = (e) => {
-                    if (!touchDraggedId) return;
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const dragGhost = document.getElementById('drag-ghost');
-                    dragGhost.style.left = `${touch.clientX - 90}px`;
-                    dragGhost.style.top = `${touch.clientY - 40}px`;
-                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                    const col = el?.closest('.kanban-col');
-                    document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drop-zone-active'));
-                    if (col) col.classList.add('drop-zone-active');
-                };
-
-                card.ontouchend = (e) => {
-                    if (!touchDraggedId) return;
-                    const dragGhost = document.getElementById('drag-ghost');
-                    const touch = e.changedTouches[0];
-                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                    const col = el?.closest('.kanban-col');
-                    if (col) {
-                        const newRep = col.getAttribute('data-repartidor') || null;
-                        window.localAssign(touchDraggedId, newRep);
-                    }
-                    dragGhost.style.display = 'none';
-                    card.style.opacity = "1";
-                    document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drop-zone-active'));
-                    touchDraggedId = null;
-                };
+                `; 
 
                 card.querySelector('.delete-order-btn').onclick = () => confirm(`¿Eliminar #${o.id}?`) && window.localDeleteOrder(o.id);
                 if (card.querySelector('.finish-btn')) card.querySelector('.finish-btn').onclick = () => window.localFinalize(o.id);
@@ -737,9 +789,10 @@
             currentStaff.forEach((r, i) => {
                 const count = all.filter(o => o.repartidor === r).length;
                 const ok = all.filter(o => o.repartidor === r && o.status === 'entregado').length;
+                const labelColor = getStaffColor(r, i);
                 perf.innerHTML += `<div class="bg-slate-900 border border-slate-800 p-3 rounded-xl min-w-[100px]">
-                    <p class="text-[7px] font-black text-slate-500 uppercase mb-1" style="color:${COLORS[i%COLORS.length].bg}">${r}</p>
-                    <div class="flex items-baseline gap-1"><span class="text-xl font-black text-white">${count}</span><span class="text-[8px] font-black text-emerald-500">${ok} OK</span></div>
+                    <p class="text-[7px] font-black text-slate-500 uppercase mb-1" style="color:${labelColor}">${r}</p>
+                    <div class="flex items-baseline gap-1"><span class="text-xl font-black text-white">${count}</span><span class="text-sm font-black text-emerald-500">${ok} OK</span></div>
                 </div>`;
             });
 
@@ -748,7 +801,7 @@
 
             filtered.forEach(o => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="px-6 py-3 font-black">#${o.id}</td><td class="px-6 py-3 font-bold">${o.repartidor || '-'}</td><td class="px-6 py-3 uppercase text-[8px]">${o.status}</td><td class="px-6 py-3 text-right"><button class="text-slate-700 hover:text-red-500 transition"><i class="fas fa-trash"></i></button></td>`;
+                tr.innerHTML = `<td class="px-6 py-3 font-black">#${o.id}</td><td class="px-6 py-3 font-bold">${o.repartidor || '-'}</td><td class="px-6 py-3 uppercase text-sm">${o.repartidor ? o.status : 'EN CASA (LOCAL)'}</td><td class="px-6 py-3 text-right"><button class="text-slate-700 hover:text-red-500 transition"><i class="fas fa-trash"></i></button></td>`; 
                 tr.querySelector('button').onclick = () => confirm(`¿Eliminar #${o.id}?`) && window.localDeleteOrder(o.id);
                 tbody.appendChild(tr);
             });
@@ -757,6 +810,12 @@
         document.getElementById('history-search').oninput = (e) => { searchQuery = e.target.value; updateHistoryUI(window.orders(), window.staff()); };
         document.getElementById('theme-toggle').onclick = () => {
             document.body.classList.toggle('light-mode');
+            // Añadir/remover explícitamente la clase 'dark-mode' para activar estilos específicos
+            if (document.body.classList.contains('light-mode')) {
+                document.body.classList.remove('dark-mode');
+            } else {
+                document.body.classList.add('dark-mode');
+            }
             const isL = document.body.classList.contains('light-mode');
             document.getElementById('theme-text').textContent = isL ? 'MODO OSCURO' : 'MODO CLARO';
         };
@@ -774,9 +833,9 @@
         document.getElementById('open-staff-modal-btn').onclick = () => {
             const list = document.getElementById('staff-list'); list.innerHTML = '';
             const currentStaff = window.staff();
-            currentStaff.forEach((n, i) => {
+                currentStaff.forEach((n, i) => {
                 list.innerHTML += `<div class="flex justify-between items-center p-3 bg-slate-900 rounded-xl border border-slate-800">
-                    <span class="font-black text-slate-300 text-[10px] uppercase">${n}</span>
+                    <span class="font-black text-slate-300 text-sm uppercase">${n}</span>
                     <button class="remove-staff text-red-500/50 hover:text-red-500" data-idx="${i}"><i class="fas fa-times-circle"></i></button>
                 </div>`;
             });
@@ -854,7 +913,7 @@
                     doc.autoTable({
                         startY: yPos + 5,
                         head: [['TICKET ID', 'ESTADO', 'HORA REGISTRO']],
-                        body: personalOrders.map(o => [`#${o.id}`, o.status.toUpperCase(), o.time]),
+                        body: personalOrders.map(o => [`#${o.id}`, (o.repartidor ? o.status : 'EN CASA (LOCAL)').toUpperCase(), o.time]), 
                         theme: 'striped',
                         headStyles: { fillColor: [63, 81, 181] },
                         margin: { left: 15 }
@@ -873,7 +932,7 @@
             doc.autoTable({
                 startY: yPos + 5,
                 head: [['ID', 'OPERADOR', 'ESTADO', 'HORA']],
-                body: sortedAllOrders.map(o => [`#${o.id}`, o.repartidor || 'SIN ASIGNAR', o.status.toUpperCase(), o.time]),
+                body: sortedAllOrders.map(o => [`#${o.id}`, o.repartidor || 'SIN ASIGNAR', (o.repartidor ? o.status : 'EN CASA (LOCAL)').toUpperCase(), o.time]),
                 theme: 'grid',
                 headStyles: { fillColor: [30, 41, 59] }
             });
