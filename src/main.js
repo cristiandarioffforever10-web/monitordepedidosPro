@@ -9,7 +9,11 @@ window.AppState = {
         orders: {},
         staff: [],
         currentUser: null,
-        userRole: 'operativo'
+        userRole: 'operativo',
+        localName: '',
+        localLogo: '',
+        localLogoWidth: null,
+        localLogoHeight: null
     },
     update(key, payload) {
         this.data[key] = payload;
@@ -63,8 +67,7 @@ const init = async () => {
             }
 
             if (!isAuthorized) {
-                console.warn(`Acceso Denegado: '${user.email}' no es un administrador autorizado.`);
-                console.info("Acción Requerida: Agrega este email a la colección 'authorized_users' en Firebase con el campo 'role: \"admin\"'.");
+                console.warn("User authenticated but not authorized.");
                 await authService.logout();
                 const urls = getURLs();
                 window.location.href = urls.login + '?error=unauthorized';
@@ -91,8 +94,6 @@ const init = async () => {
                 loadingScreen.style.opacity = '0';
                 setTimeout(() => loadingScreen.style.display = 'none', 500);
             }
-            document.getElementById('kanban-container')?.classList.remove('hidden');
-            document.getElementById('ops-panel')?.classList.remove('hidden');
         } else {
             // No user, redirect to login if not already there
             const urls = getURLs();
@@ -103,7 +104,77 @@ const init = async () => {
     });
 
     // Inicilizamos sin login automático
+
+    // Cargar configuración de marca
+    const savedName = localStorage.getItem('rutatotal_local_name');
+    const savedLogo = localStorage.getItem('rutatotal_local_logo');
+    const savedWidth = localStorage.getItem('rutatotal_local_logo_width');
+    const savedHeight = localStorage.getItem('rutatotal_local_logo_height');
+
+    if (savedName) window.AppState.data.localName = savedName;
+    if (savedLogo) window.AppState.data.localLogo = savedLogo;
+    if (savedWidth) window.AppState.data.localLogoWidth = savedWidth;
+    if (savedHeight) window.AppState.data.localLogoHeight = savedHeight;
+
+    updateBrandUI(
+        window.AppState.data.localName,
+        window.AppState.data.localLogo,
+        window.AppState.data.localLogoWidth,
+        window.AppState.data.localLogoHeight
+    );
 };
+
+function updateBrandUI(name, logo, width, height) {
+    const nameInput = document.getElementById('local-name-input');
+    const logoDisplay = document.getElementById('local-logo-display');
+    const logoPlaceholder = document.getElementById('local-logo-placeholder');
+
+    if (nameInput) {
+        nameInput.value = name || "";
+        nameInput.classList.toggle('text-white', !!name);
+        nameInput.classList.toggle('text-white/10', !name);
+        setTimeout(resizeNameInput, 0);
+    }
+
+    if (logoDisplay && logoPlaceholder) {
+        if (logo) {
+            logoDisplay.src = logo;
+            logoDisplay.classList.remove('hidden');
+            logoPlaceholder.classList.add('hidden');
+        } else {
+            logoDisplay.classList.add('hidden');
+            logoPlaceholder.classList.remove('hidden');
+        }
+
+        const elements = [logoDisplay, logoPlaceholder];
+        if (width && height) {
+            elements.forEach(el => {
+                if (el) {
+                    el.style.width = width + 'px';
+                    el.style.height = height + 'px';
+                    el.classList.remove('w-10', 'h-10');
+                }
+            });
+        }
+    }
+}
+
+function resizeNameInput() {
+    const input = document.getElementById('local-name-input');
+    if (input) {
+        const tempSpan = document.createElement('span');
+        tempSpan.style.visibility = 'hidden';
+        tempSpan.style.position = 'absolute';
+        tempSpan.style.whiteSpace = 'pre';
+        tempSpan.style.font = window.getComputedStyle(input).font;
+        tempSpan.style.textTransform = 'uppercase';
+        tempSpan.style.letterSpacing = window.getComputedStyle(input).letterSpacing;
+        tempSpan.textContent = input.value || input.placeholder;
+        document.body.appendChild(tempSpan);
+        input.style.width = (tempSpan.offsetWidth + 10) + 'px';
+        document.body.removeChild(tempSpan);
+    }
+}
 
 function applyRoleRestrictions(role) {
     const isOperativo = role === 'operativo';
@@ -136,20 +207,57 @@ function applyRoleRestrictions(role) {
                 feedback = document.createElement('p');
                 feedback.className = 'role-feedback text-[10px] text-slate-500 font-bold uppercase mt-4 text-center w-full';
                 feedback.textContent = feedbackMsg;
-                modal.querySelector(config.footerSelector).appendChild(feedback);
+                const footer = modal.querySelector(config.footerSelector);
+                if (footer) footer.appendChild(feedback);
             } else if (feedback) {
                 feedback.style.display = isOperativo ? 'block' : 'none';
             }
         }
     });
 
-    // Desbloquear botones de acceso a modales
-    ['open-staff-modal-btn', 'open-history-modal-btn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'flex';
-    });
+    // Gestión de visibilidad y edición de marca
+    const brandGroup = document.getElementById('brand-header-group');
+    const nameInput = document.getElementById('local-name-input');
+    const logoContainer = document.querySelector('#local-logo-container .relative');
 
-    if (isOperativo) console.log("Modo Operativo: Restricciones de acción aplicadas.");
+    if (brandGroup) {
+        if (isOperativo) {
+            // Personal operativo: Marca siempre visible y NO editable
+            brandGroup.classList.add('brand-visible');
+            brandGroup.style.cursor = 'default';
+            brandGroup.ondblclick = null;
+
+            if (nameInput) {
+                nameInput.readOnly = true;
+                nameInput.style.pointerEvents = 'none';
+            }
+            if (logoContainer) {
+                logoContainer.style.pointerEvents = 'none';
+                logoContainer.removeAttribute('onclick');
+            }
+        } else {
+            // Admin: Oculto por defecto, toggleable y EDITABLE
+            brandGroup.classList.remove('brand-visible');
+            brandGroup.style.cursor = 'pointer';
+            brandGroup.ondblclick = () => {
+                brandGroup.classList.toggle('brand-visible');
+                if (brandGroup.classList.contains('brand-visible')) {
+                    resizeNameInput();
+                }
+            };
+
+            if (nameInput) {
+                nameInput.readOnly = false;
+                nameInput.style.pointerEvents = 'auto';
+            }
+            if (logoContainer) {
+                logoContainer.style.pointerEvents = 'auto';
+                logoContainer.setAttribute('onclick', "document.getElementById('local-logo-file').click()");
+            }
+        }
+    }
+
+    if (isOperativo) console.log("Modo Operativo: Restricciones aplicadas.");
 }
 
 // Event Listeners and Global Setup
@@ -172,10 +280,26 @@ window.onload = () => {
     };
 
     document.getElementById('start-demo-btn').onclick = () => {
-        document.getElementById('ops-panel').classList.remove('hidden');
-        document.getElementById('kanban-container').classList.remove('hidden');
-        document.getElementById('start-demo-btn').innerHTML = '<i class="fas fa-check-circle"></i><span class="btn-label">TERMINAL</span>';
-        uiManager.renderApp(window.AppState.data, handlers);
+        const opsPanel = document.getElementById('ops-panel');
+        const kanban = document.getElementById('kanban-container');
+        const btn = document.getElementById('start-demo-btn');
+
+        const isHidden = opsPanel.classList.contains('hidden');
+
+        if (isHidden) {
+            opsPanel.classList.remove('hidden');
+            kanban.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-power-off text-xl"></i>';
+            btn.classList.add('bg-red-600', 'hover:bg-red-500');
+            btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+            uiManager.renderApp(window.AppState.data, handlers);
+        } else {
+            opsPanel.classList.add('hidden');
+            kanban.classList.add('hidden');
+            btn.innerHTML = '<i class="fas fa-terminal text-xl"></i>';
+            btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+            btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+        }
     };
 
     // Modal Listeners
@@ -183,6 +307,40 @@ window.onload = () => {
         const modal = document.getElementById(id);
         if (modal) modal.style.display = show ? 'flex' : 'none';
     };
+
+    // Side Menu (Burger) Listeners
+    const sideMenu = document.getElementById('side-menu');
+    const sideOverlay = document.getElementById('side-menu-overlay');
+
+    const togSideMenu = (show) => {
+        if (!sideMenu || !sideOverlay) return;
+        if (show) {
+            sideOverlay.classList.remove('hidden');
+            setTimeout(() => {
+                sideOverlay.style.opacity = '1';
+                sideMenu.classList.remove('translate-x-full');
+            }, 10);
+        } else {
+            sideOverlay.style.opacity = '0';
+            sideMenu.classList.add('translate-x-full');
+            setTimeout(() => {
+                sideOverlay.classList.add('hidden');
+            }, 300);
+        }
+    };
+
+    document.getElementById('burger-menu-btn').onclick = () => togSideMenu(true);
+    document.getElementById('close-side-menu').onclick = () => togSideMenu(false);
+    sideOverlay.onclick = () => togSideMenu(false);
+
+    // Cerrar menú al hacer click en cualquier opción dentro
+    sideMenu.querySelectorAll('button').forEach(btn => {
+        const oldClick = btn.onclick;
+        btn.onclick = (e) => {
+            if (oldClick) oldClick(e);
+            if (btn.id !== 'logoutBtn') togSideMenu(false); // No cerramos si es logout para ver la confirmación
+        };
+    });
 
     document.getElementById('open-staff-modal-btn').onclick = () => {
         uiManager.renderStaffListModal(window.AppState.data.staff, handlers.onUpdateStaff, window.AppState.data.userRole);
@@ -207,9 +365,15 @@ window.onload = () => {
     };
 
     document.getElementById('clear-history-btn').onclick = async () => {
-        if (confirm("¿Purgar todo?")) {
-            const ids = Object.keys(window.AppState.data.orders);
-            for (const id of ids) await handlers.onDeleteOrder(id);
+        if (confirm("¿Activar Modo Fantasma? Se archivarán todos los pedidos actuales para auditoría y se limpiará el monitor.")) {
+            try {
+                await databaseService.archiveAndClearAllOrders(window.AppState.data.orders);
+                uiManager.playSound("A2");
+                alert("Operación completada: Monitor limpio y datos archivados.");
+            } catch (error) {
+                console.error("Error en Modo Fantasma:", error);
+                alert("Error al archivar. El monitor no se ha limpiado.");
+            }
         }
     };
 
@@ -217,16 +381,96 @@ window.onload = () => {
         uiManager.generatePDFReport(window.AppState.data.orders, window.AppState.data.staff);
     };
 
-    document.getElementById('logoutBtn').onclick = () => handlers.onSignOut();
-
-    // Loading screen fade out - handled in onAuthChange
-    /*
-    setTimeout(() => {
-        const ls = document.getElementById('loading-screen');
-        if (ls) {
-            ls.style.opacity = '0';
-            setTimeout(() => ls.style.display = 'none', 500);
+    document.getElementById('logoutBtn').onclick = () => {
+        if (confirm("¿Estás seguro de que deseas cerrar sesión? Detendrás la sincronización en tiempo real.")) {
+            handlers.onSignOut();
         }
-    }, 1000);
-    */
+    };
+
+    // Brand Personalization Listeners
+    const nameInput = document.getElementById('local-name-input');
+    if (nameInput) {
+        nameInput.oninput = (e) => {
+            const val = e.target.value;
+            window.AppState.data.localName = val;
+            localStorage.setItem('rutatotal_local_name', val);
+            nameInput.classList.toggle('text-white', !!val);
+            nameInput.classList.toggle('text-white/10', !val);
+            resizeNameInput();
+        };
+    }
+
+    const logoFileInput = document.getElementById('local-logo-file');
+    if (logoFileInput) {
+        logoFileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    window.AppState.data.localLogo = base64;
+                    localStorage.setItem('rutatotal_local_logo', base64);
+                    updateBrandUI(
+                        window.AppState.data.localName,
+                        base64,
+                        window.AppState.data.localLogoWidth,
+                        window.AppState.data.localLogoHeight
+                    );
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+    }
+
+    // Resize Logic for Logo
+    const handle = document.getElementById('logo-resize-handle');
+    const container = document.getElementById('local-logo-container');
+    if (handle && container) {
+        const startResize = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const startX = e.clientX || e.touches[0].clientX;
+            const startY = e.clientY || e.touches[0].clientY;
+            const startWidth = container.offsetWidth;
+            const startHeight = container.offsetHeight;
+
+            const onMove = (moveEvent) => {
+                const currentX = moveEvent.clientX || moveEvent.touches[0].clientX;
+                const currentY = moveEvent.clientY || moveEvent.touches[0].clientY;
+
+                let newWidth = startWidth + (currentX - startX);
+                let newHeight = startHeight + (currentY - startY);
+
+                newWidth = Math.min(80, Math.max(20, newWidth));
+                newHeight = Math.min(54, Math.max(20, newHeight));
+
+                window.AppState.data.localLogoWidth = newWidth;
+                window.AppState.data.localLogoHeight = newHeight;
+                localStorage.setItem('rutatotal_local_logo_width', newWidth);
+                localStorage.setItem('rutatotal_local_logo_height', newHeight);
+
+                updateBrandUI(
+                    window.AppState.data.localName,
+                    window.AppState.data.localLogo,
+                    newWidth,
+                    newHeight
+                );
+            };
+
+            const onEnd = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onEnd);
+                window.removeEventListener('touchmove', onMove);
+                window.removeEventListener('touchend', onEnd);
+            };
+
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+        };
+
+        handle.onmousedown = startResize;
+        handle.ontouchstart = startResize;
+    }
 };

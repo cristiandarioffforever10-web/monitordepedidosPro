@@ -239,7 +239,17 @@ export const uiManager = {
                 const b = document.createElement('button');
                 b.className = 'num-btn shadow-sm';
                 b.textContent = n;
-                b.onclick = () => handlers.onCreateOrder(n);
+                b.onclick = async () => {
+                    const existingOrder = window.AppState.data.orders[n];
+                    if (existingOrder && existingOrder.status === 'entregado') {
+                        if (confirm(`Este pedido (${n}) ya fue entregado, ¿desea seleccionarlo de nuevo? (Se eliminará el registro anterior)`)) {
+                            await handlers.onDeleteOrder(n);
+                            await handlers.onCreateOrder(n);
+                        }
+                    } else {
+                        handlers.onCreateOrder(n);
+                    }
+                };
                 grid.appendChild(b);
             }
             track.appendChild(grid);

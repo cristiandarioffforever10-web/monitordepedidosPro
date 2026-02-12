@@ -1,18 +1,18 @@
 import { auth, db } from '../config/firebase.config.js';
-import {
-    signInAnonymously,
-    onAuthStateChanged,
-    signOut,
-    GoogleAuthProvider,
-    signInWithPopup
+import { 
+    signInAnonymously, 
+    onAuthStateChanged, 
+    signOut, 
+    GoogleAuthProvider, 
+    signInWithPopup 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import {
-    doc,
-    getDoc,
-    collection,
-    query,
-    where,
-    getDocs
+import { 
+    doc, 
+    getDoc, 
+    collection, 
+    query, 
+    where, 
+    getDocs 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const googleProvider = new GoogleAuthProvider();
@@ -66,25 +66,14 @@ export const authService = {
     async checkAuthorization(email) {
         if (!email) return false;
         try {
-            // Normalizamos el email para evitar errores por capitalización
-            const normalizedEmail = email.toLowerCase().trim();
-            const userDoc = await getDoc(doc(db, 'authorized_users', normalizedEmail));
-
+            const userDoc = await getDoc(doc(db, 'authorized_users', email));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 return userData.role === 'admin';
             }
-
-            console.warn(`Verificación: Usuario ${normalizedEmail} no encontrado en 'authorized_users'.`);
             return false;
         } catch (error) {
-            // Manejamos específicamente el error de permisos (code: 'permission-denied' o similar)
-            if (error.code === 'permission-denied' || error.message?.includes('insufficient permissions')) {
-                console.warn("Aviso de Autorización: Permisos insuficientes para consultar 'authorized_users'.");
-                console.info("TIP: Asegúrate de que el documento del usuario exista y las reglas de seguridad permitan la lectura.");
-            } else {
-                console.error("Authorization Check Error:", error);
-            }
+            console.error("Authorization Check Error:", error);
             return false;
         }
     },

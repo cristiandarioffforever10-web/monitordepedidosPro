@@ -1,5 +1,5 @@
 import { auth, db, APP_ID } from '../config/firebase.config.js';
-import { doc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { doc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 export const databaseService = {
     subscribeToOrders(callback) {
@@ -72,5 +72,30 @@ export const databaseService = {
     async updateStaff(newList) {
         const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'staff');
         await setDoc(configRef, { list: newList });
+    },
+
+    async archiveAndClearAllOrders(orders) {
+        if (!orders || Object.keys(orders).length === 0) return;
+
+        const batch = writeBatch(db);
+        const now = new Date();
+        const monthId = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        Object.entries(orders).forEach(([id, data]) => {
+            // 1. Preparar copia en el archivo
+            const archiveRef = doc(db, 'artifacts', APP_ID, 'archive', monthId, 'orders', id.toString());
+            batch.set(archiveRef, {
+                ...data,
+                archivedAt: serverTimestamp(),
+                archiveMonth: monthId
+            });
+
+            // 2. Preparar eliminación de la colección activa
+            const activeRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id.toString());
+            batch.delete(activeRef);
+        });
+
+        await batch.commit();
+        console.log(`Modo Fantasma: ${Object.keys(orders).length} pedidos archivados en ${monthId}`);
     }
 };

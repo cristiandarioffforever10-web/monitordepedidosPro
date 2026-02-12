@@ -1,7 +1,7 @@
 # 🛡️ RutaTotal 360: Protocolo de Configuración Antigravity
 
 **Versión:** 1.4 (Fase 1: Lógica de Poder y Ubicación)
-**Fuente de Verdad (SSOT):** Cuaderno NotebookLM "RutaTotal Estrategia Final"
+**Fuente de Verdad (SSOT):** Cuaderno NotebookLM "RutaTotal 360 cerebro"
 
 ---
 
